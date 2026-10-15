@@ -2,7 +2,7 @@
 
 // ファイルを更新したら、バージョンも変更してアプリ一式を入れ替える。
 const CACHE_PREFIX = `stopwatch-pwa:${self.registration.scope}:`;
-const CACHE_NAME = `${CACHE_PREFIX}v1`;
+const CACHE_NAME = `${CACHE_PREFIX}v2`;
 const ASSETS = [
     "./", "./index.html", "./styles.css", "./app.js", "./stopwatch.js",
     "./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png",

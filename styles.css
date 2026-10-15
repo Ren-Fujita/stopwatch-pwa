@@ -129,6 +129,8 @@
         grid-template-columns: minmax(65px, 0.8fr) minmax(0, 1.1fr) minmax(0, 1.1fr);
         column-gap: var(--lap-column-gap);
         align-items: center;
+        /* iPhoneの重ねて表示されるスクロールバーから文字を離す。 */
+        padding-inline-end: 12px;
     }
 
     .lap-header {
