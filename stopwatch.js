@@ -1,25 +1,27 @@
+const STATE_VERSION = 1;
+const validTime = value => Number.isFinite(value) && value >= 0;
+
+function canRestore(state) {
+    if (!state || state.version !== STATE_VERSION || !["running", "paused"].includes(state.status)
+        || !validTime(state.startedAt) || !validTime(state.accumulatedTime)
+        || !Array.isArray(state.laps)) return false;
+    let previousTotal = 0;
+    for (let index = 0; index < state.laps.length; index++) {
+        const lap = state.laps[index];
+        if (!lap || lap.number !== index + 1 || !validTime(lap.total)
+            || !validTime(lap.duration) || lap.total < previousTotal
+            || Math.abs(lap.duration - (lap.total - previousTotal)) > 0.001) return false;
+        previousTotal = lap.total;
+    }
+    return state.status !== "paused" || state.accumulatedTime >= previousTotal;
+}
+
 // iOSのスリープ中は描画が止まるため、開始した実時刻との差から経過時間を求める。
 export function createStopwatch({ now = Date.now, savedState = null } = {}) {
     let status = "ready";
     let startedAt = 0;
     let accumulatedTime = 0;
     const recordedLaps = [];
-
-    const validTime = value => Number.isFinite(value) && value >= 0;
-    function canRestore(state) {
-        if (!state || state.version !== 1 || !["running", "paused"].includes(state.status)
-            || !validTime(state.startedAt) || !validTime(state.accumulatedTime)
-            || !Array.isArray(state.laps)) return false;
-        let previousTotal = 0;
-        for (let index = 0; index < state.laps.length; index++) {
-            const lap = state.laps[index];
-            if (!lap || lap.number !== index + 1 || !validTime(lap.total)
-                || !validTime(lap.duration) || lap.total < previousTotal
-                || Math.abs(lap.duration - (lap.total - previousTotal)) > 0.001) return false;
-            previousTotal = lap.total;
-        }
-        return state.status !== "paused" || state.accumulatedTime >= previousTotal;
-    }
 
     if (canRestore(savedState)) {
         status = savedState.status;
@@ -68,11 +70,26 @@ export function createStopwatch({ now = Date.now, savedState = null } = {}) {
         },
         snapshot() {
             return {
-                version: 1, status, startedAt, accumulatedTime,
+                version: STATE_VERSION, status, startedAt, accumulatedTime,
                 laps: recordedLaps.map(lap => ({ ...lap }))
             };
         }
     };
+}
+
+// 表示と同じ1/100秒単位で比較し、同タイムなら先のラップを選ぶ。
+export function getLapHighlights(laps) {
+    let minimum = Infinity;
+    let maximum = -Infinity;
+    let fastestIndex = -1;
+    let slowestIndex = -1;
+    laps.forEach((lap, index) => {
+        const time = Math.floor(lap.duration / 10);
+        if (time < minimum) { minimum = time; fastestIndex = index; }
+        if (time > maximum) { maximum = time; slowestIndex = index; }
+    });
+    if (laps.length < 2 || minimum === maximum) return { fastestIndex: -1, slowestIndex: -1 };
+    return { fastestIndex, slowestIndex };
 }
 
 // 1時間未満は MM:SS.hh、1時間以上は HH:MM:SS.hh。

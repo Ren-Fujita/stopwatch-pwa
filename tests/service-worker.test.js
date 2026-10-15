@@ -65,7 +65,7 @@ for (const scope of ["https://example.github.io/", "https://example.github.io/st
         sw.offline();
         assert.equal(await sw.request("./?home=1", { mode: "navigate" }), "cached:./index.html");
         assert.equal(await sw.request("./index.html", { mode: "navigate" }), "cached:./index.html");
-        for (const asset of ["styles.css", "app.js", "stopwatch.js", "manifest.webmanifest", "icons/apple-touch-icon.png"]) {
+        for (const asset of ["styles.css", "app.js", "stopwatch.js", "controller.js", "storage.js", "view.js", "manifest.webmanifest", "icons/apple-touch-icon.png"]) {
             assert.equal(await sw.request(`./${asset}`), `cached:./${asset}`);
         }
     });
@@ -74,13 +74,18 @@ for (const scope of ["https://example.github.io/", "https://example.github.io/st
 test("activation deletes only this app's old caches", async () => {
     const scope = "https://example.github.io/stopwatch-pwa/";
     const sw = worker(scope);
+    await sw.lifecycle("install");
+    const [currentCache] = sw.stores.keys();
     sw.stores.set(`stopwatch-pwa:${scope}:v0`, new Map());
+    sw.stores.set(`stopwatch-pwa:${scope}:v1`, new Map());
+    sw.stores.set(`stopwatch-pwa:${scope}:v2`, new Map());
     sw.stores.set("another-app", new Map());
     sw.stores.set("stopwatch-pwa:https://example.github.io/another/:v1", new Map());
-    await sw.lifecycle("install");
     await sw.lifecycle("activate");
     assert.ok(!sw.stores.has(`stopwatch-pwa:${scope}:v0`));
-    assert.ok(sw.stores.has(`stopwatch-pwa:${scope}:v1`));
+    assert.ok(!sw.stores.has(`stopwatch-pwa:${scope}:v1`));
+    assert.ok(!sw.stores.has(`stopwatch-pwa:${scope}:v2`));
+    assert.ok(sw.stores.has(currentCache));
     assert.ok(sw.stores.has("another-app"));
     assert.ok(sw.stores.has("stopwatch-pwa:https://example.github.io/another/:v1"));
     assert.ok(sw.claimed());

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createStopwatch, formatTime } from "../stopwatch.js";
+import { createStopwatch, formatTime, getLapHighlights } from "../stopwatch.js";
 
 function setup(savedState) {
     let time = 1700000000000;
@@ -95,4 +95,17 @@ test("duplicate start and stop calls do not change the measured time", () => {
     advance(1000);
     watch.stop();
     assert.equal(watch.elapsedTime(), 2000);
+});
+
+test("lap highlights use the displayed hundredths and prefer the first tied lap", () => {
+    const laps = [120, 129, 240, 249].map(duration => ({ duration }));
+    assert.deepEqual(getLapHighlights(laps), { fastestIndex: 0, slowestIndex: 2 });
+});
+
+test("empty, single and equal displayed laps are not highlighted", () => {
+    for (const durations of [[], [100], [100, 109, 101]]) {
+        assert.deepEqual(getLapHighlights(durations.map(duration => ({ duration }))), {
+            fastestIndex: -1, slowestIndex: -1
+        });
+    }
 });
