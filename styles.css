@@ -1,0 +1,192 @@
+:root {
+        color-scheme: dark;
+        font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+                     "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+        background: #000;
+        color: #fff;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overscroll-behavior: none;
+    }
+
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #000;
+    }
+
+    .stopwatch {
+        --row-height: 44px;
+        --button-size: 84px;
+        --button-font-size: 17px;
+        --lap-column-gap: 10px;
+        width: 100%;
+        max-width: 430px;
+        height: 100vh;
+        height: 100dvh;
+        max-height: 932px;
+        padding: env(safe-area-inset-top, 0px)
+                 max(16px, env(safe-area-inset-right, 0px))
+                 max(20px, env(safe-area-inset-bottom, 0px))
+                 max(16px, env(safe-area-inset-left, 0px));
+        display: flex;
+        flex-direction: column;
+        container-type: inline-size;
+    }
+
+    /* iPhoneと同じく、時間表示の上下にゆったりと余白を取る。 */
+    .timer-face {
+        flex: 0 0 clamp(220px, 46.3vh, 432px);
+        flex-basis: clamp(220px, 46.3dvh, 432px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .display, .lap {
+        font-variant-numeric: tabular-nums lining-nums;
+        font-feature-settings: "tnum";
+    }
+
+    .display {
+        margin: 0;
+        max-width: 100%;
+        font-size: 86px;
+        font-size: min(96px, var(--time-font-size, 24cqw));
+        font-weight: 200;
+        line-height: 1;
+        letter-spacing: -0.025em;
+        text-align: center;
+        white-space: nowrap;
+        user-select: none;
+        transform: scaleX(var(--time-width-scale, 1));
+        transform-origin: center;
+    }
+
+    .buttons {
+        flex: 0 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 0 0 16px;
+    }
+
+    button {
+        appearance: none;
+        -webkit-appearance: none;
+        width: var(--button-size);
+        height: var(--button-size);
+        flex: 0 0 var(--button-size);
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        font: inherit;
+        font-size: var(--button-font-size);
+        font-weight: 400;
+        letter-spacing: -0.025em;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        transition: background-color 140ms ease, color 140ms ease, opacity 100ms ease;
+    }
+
+    button:active { opacity: 0.62; }
+    button:focus-visible { outline: 2px solid #fff; outline-offset: 5px; }
+
+    #leftButton { background: #2d2d2f; color: #fff; }
+    .stopwatch[data-state="ready"] #leftButton { background: #19191b; color: #8e8e93; }
+    #rightButton { background: #0a2412; color: #30d158; }
+    .stopwatch[data-state="running"] #rightButton { background: #2d0f0f; color: #ff453a; }
+
+    .laps {
+        flex: 1 1 0;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
+        border-top: 1px solid #1c1c1e;
+        scrollbar-width: thin;
+        scrollbar-color: #3a3a3c transparent;
+    }
+
+    .laps::-webkit-scrollbar { width: 3px; }
+    .laps::-webkit-scrollbar-thumb { background: #3a3a3c; border-radius: 3px; }
+
+    .lap-header, .lap {
+        display: grid;
+        grid-template-columns: minmax(65px, 0.8fr) minmax(0, 1.1fr) minmax(0, 1.1fr);
+        column-gap: var(--lap-column-gap);
+        align-items: center;
+    }
+
+    .lap-header {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        height: 36px;
+        background: #000;
+        border-bottom: 1px solid #333;
+        color: #8e8e93;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    .lap-header[hidden] { display: none; }
+    .lap-header span:nth-child(2) { text-align: center; }
+    .lap-header span:nth-child(3) { text-align: right; }
+
+    .lap {
+        min-height: var(--row-height);
+        background: #000;
+        border-bottom: 1px solid #222;
+        font-size: 17px;
+        line-height: 1.3;
+        white-space: nowrap;
+    }
+
+    .lap-number { text-align: left; letter-spacing: -0.015em; }
+    .lap-number::before { content: "ラップ"; }
+    .lap-total { color: #aaa; text-align: center; }
+    .lap-total, .lap-time { font-size: clamp(12px, 4.5cqw, 17px); }
+    .lap-time { text-align: right; }
+    .lap.is-fast { color: #30d158; }
+    .lap.is-slow { color: #ff453a; }
+
+    @media (max-width: 350px) {
+        .stopwatch {
+            --button-size: 76px;
+            --button-font-size: 16px;
+            --lap-column-gap: 6px;
+            padding-left: max(12px, env(safe-area-inset-left, 0px));
+            padding-right: max(12px, env(safe-area-inset-right, 0px));
+        }
+        .lap { font-size: 15px; }
+    }
+
+    @media (max-height: 550px) {
+        .timer-face { flex-basis: 38vh; flex-basis: 38dvh; }
+        .display { font-size: min(80px, var(--time-font-size, 24cqw)); }
+        .buttons { margin-bottom: 14px; }
+        .stopwatch {
+            --button-size: 68px;
+            --button-font-size: 15px;
+            padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+
+button:disabled { cursor: default; }
+.noscript { padding: 24px; }
