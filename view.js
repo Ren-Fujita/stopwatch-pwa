@@ -1,5 +1,11 @@
 import { formatTime, getLapHighlights } from "./stopwatch.js";
 
+const LAP_COLUMNS = [
+    { className: "lap-number", text: lap => String(lap.number) },
+    { className: "lap-total", text: lap => formatTime(lap.total) },
+    { className: "lap-time", text: lap => formatTime(lap.duration) }
+];
+
 export function createStopwatchView(document) {
     const elements = {
         stopwatch: document.querySelector(".stopwatch"),
@@ -14,6 +20,7 @@ export function createStopwatchView(document) {
     let displayLength = 0;
     let renderedStatus = null;
     let renderedLaps = null;
+    let renderedHighlights = { fastestIndex: -1, slowestIndex: -1 };
     let disposed = false;
 
     function fitTimeWidth() {
@@ -44,37 +51,56 @@ export function createStopwatchView(document) {
         renderedStatus = status;
     }
 
+    function renderLapValues(row, lap) {
+        for (const [index, column] of LAP_COLUMNS.entries()) {
+            const text = column.text(lap);
+            const cell = row.children[index];
+            if (cell.textContent !== text) cell.textContent = text;
+        }
+    }
+
     function createLapRow(lap) {
         const row = document.createElement("div");
         row.className = "lap";
-        const values = [
-            ["lap-number", String(lap.number)],
-            ["lap-total", formatTime(lap.total)],
-            ["lap-time", formatTime(lap.duration)]
-        ];
-        for (const [className, text] of values) {
+        for (const column of LAP_COLUMNS) {
             const cell = document.createElement("span");
-            cell.className = className;
-            cell.textContent = text;
+            cell.className = column.className;
             row.appendChild(cell);
         }
+        renderLapValues(row, lap);
         return row;
+    }
+
+    function renderLapHighlights(laps) {
+        const highlights = getLapHighlights(laps);
+        // 以前と今回の最速・最遅の行だけを更新する。
+        const affectedRows = new Set([
+            renderedHighlights.fastestIndex, renderedHighlights.slowestIndex,
+            highlights.fastestIndex, highlights.slowestIndex
+        ]);
+        for (const index of affectedRows) {
+            const row = elements.lapList.children[index];
+            if (!row) continue;
+            row.classList.toggle("is-fast", index === highlights.fastestIndex);
+            row.classList.toggle("is-slow", index === highlights.slowestIndex);
+        }
+        renderedHighlights = highlights;
     }
 
     function renderLaps(laps) {
         // モデルの一覧は変更不可。参照が同じなら行と色分けの更新は不要。
         if (laps === renderedLaps) return;
         elements.lapHeader.hidden = laps.length === 0;
-        if (elements.lapList.children.length > laps.length) elements.lapList.replaceChildren();
-        // 既存の行を残し、停止・再開時のスクロール位置を維持する。
-        for (let index = elements.lapList.children.length; index < laps.length; index++) {
-            elements.lapList.appendChild(createLapRow(laps[index]));
+        while (elements.lapList.children.length > laps.length) {
+            elements.lapList.removeChild(elements.lapList.lastElementChild);
         }
-        const { fastestIndex, slowestIndex } = getLapHighlights(laps);
-        Array.from(elements.lapList.children).forEach((row, index) => {
-            row.classList.toggle("is-fast", index === fastestIndex);
-            row.classList.toggle("is-slow", index === slowestIndex);
-        });
+        // 既存の行を残し、停止・再開時のスクロール位置を維持する。
+        for (let index = 0; index < laps.length; index++) {
+            const row = elements.lapList.children[index];
+            if (!row) elements.lapList.appendChild(createLapRow(laps[index]));
+            else if (laps[index] !== renderedLaps?.[index]) renderLapValues(row, laps[index]);
+        }
+        renderLapHighlights(laps);
         renderedLaps = laps;
     }
 

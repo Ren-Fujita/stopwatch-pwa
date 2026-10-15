@@ -28,6 +28,7 @@
         --button-size: 84px;
         --button-font-size: 17px;
         --lap-column-gap: 10px;
+        --scrollbar-offset: 12px;
         width: 100%;
         max-width: 430px;
         height: 100vh;
@@ -110,15 +111,23 @@
     #rightButton { background: #0a2412; color: #30d158; }
     .stopwatch[data-state="running"] #rightButton { background: #2d0f0f; color: #ff453a; }
 
+    .laps-panel {
+        flex: 1 1 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        border-top: 1px solid #1c1c1e;
+    }
+
     .laps {
         flex: 1 1 0;
         min-height: 0;
+        /* 一覧の幅を保ったまま、スクロール領域の右端だけを外側へ広げる。 */
+        margin-inline-end: calc(-1 * var(--scrollbar-offset));
+        padding-inline-end: var(--scrollbar-offset);
         overflow-y: auto;
-        /* 横線も含めた一覧全体をスクロールバーから離す。 */
-        padding-inline-end: 12px;
         overscroll-behavior-y: contain;
         -webkit-overflow-scrolling: touch;
-        border-top: 1px solid #1c1c1e;
         scrollbar-width: thin;
         scrollbar-color: #3a3a3c transparent;
     }

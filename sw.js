@@ -3,7 +3,7 @@
 // ファイルを更新したら、バージョンも変更してアプリ一式を入れ替える。
 const APP_SCOPE = new URL(self.registration.scope);
 const CACHE_PREFIX = `stopwatch-pwa:${APP_SCOPE.href}:`;
-const CACHE_NAME = `${CACHE_PREFIX}v5`;
+const CACHE_NAME = `${CACHE_PREFIX}v7`;
 const ASSETS = [
     "./", "./index.html", "./styles.css", "./app.js", "./stopwatch.js",
     "./controller.js", "./storage.js", "./view.js",
