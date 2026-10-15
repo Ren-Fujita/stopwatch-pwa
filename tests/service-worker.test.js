@@ -79,12 +79,16 @@ test("activation deletes only this app's old caches", async () => {
     sw.stores.set(`stopwatch-pwa:${scope}:v0`, new Map());
     sw.stores.set(`stopwatch-pwa:${scope}:v1`, new Map());
     sw.stores.set(`stopwatch-pwa:${scope}:v2`, new Map());
+    sw.stores.set(`stopwatch-pwa:${scope}:v3`, new Map());
+    sw.stores.set(`stopwatch-pwa:${scope}:v4`, new Map());
     sw.stores.set("another-app", new Map());
     sw.stores.set("stopwatch-pwa:https://example.github.io/another/:v1", new Map());
     await sw.lifecycle("activate");
     assert.ok(!sw.stores.has(`stopwatch-pwa:${scope}:v0`));
     assert.ok(!sw.stores.has(`stopwatch-pwa:${scope}:v1`));
     assert.ok(!sw.stores.has(`stopwatch-pwa:${scope}:v2`));
+    assert.ok(!sw.stores.has(`stopwatch-pwa:${scope}:v3`));
+    assert.ok(!sw.stores.has(`stopwatch-pwa:${scope}:v4`));
     assert.ok(sw.stores.has(currentCache));
     assert.ok(sw.stores.has("another-app"));
     assert.ok(sw.stores.has("stopwatch-pwa:https://example.github.io/another/:v1"));

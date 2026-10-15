@@ -109,3 +109,51 @@ test("empty, single and equal displayed laps are not highlighted", () => {
         });
     }
 });
+
+test("callers cannot corrupt recorded times through the returned lap or list", () => {
+    const { watch, advance } = setup();
+    watch.start();
+    advance(1000);
+    const lap = watch.recordLap();
+    assert.throws(() => { lap.total = 0; }, TypeError);
+    assert.throws(() => { watch.laps[0].duration = 0; }, TypeError);
+    assert.throws(() => watch.laps.push({ number: 2, total: 0, duration: 0 }), TypeError);
+    advance(500);
+    assert.deepEqual(watch.recordLap(), { number: 2, total: 1500, duration: 500 });
+});
+
+test("lap references stay stable until a lap is added or the watch is reset", () => {
+    const { watch, advance } = setup();
+    const empty = watch.laps;
+    watch.start();
+    advance(1000);
+    assert.equal(watch.laps, empty);
+    watch.recordLap();
+    const first = watch.laps;
+    assert.notEqual(first, empty);
+    watch.stop();
+    watch.start();
+    assert.equal(watch.laps, first);
+    advance(500);
+    watch.recordLap();
+    assert.notEqual(watch.laps, first);
+    assert.equal(first.length, 1);
+    watch.reset();
+    assert.deepEqual(watch.laps, []);
+});
+
+test("saved snapshots and restoration input remain independent of the live record", () => {
+    const { watch, advance, now } = setup();
+    watch.start();
+    advance(1000);
+    watch.recordLap();
+    watch.stop();
+    const snapshot = watch.snapshot();
+    const restored = createStopwatch({ now, savedState: snapshot });
+    snapshot.laps[0].total = 999;
+    snapshot.laps.push({ number: 2, total: 999, duration: 0 });
+    for (const instance of [watch, restored]) {
+        assert.deepEqual(instance.laps, [{ number: 1, total: 1000, duration: 1000 }]);
+        assert.equal(instance.elapsedTime(), 1000);
+    }
+});

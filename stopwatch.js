@@ -1,5 +1,7 @@
 const STATE_VERSION = 1;
+const EMPTY_LAPS = Object.freeze([]);
 const validTime = value => Number.isFinite(value) && value >= 0;
+const pad = value => String(value).padStart(2, "0");
 
 function canRestore(state) {
     if (!state || state.version !== STATE_VERSION || !["running", "paused"].includes(state.status)
@@ -21,13 +23,13 @@ export function createStopwatch({ now = Date.now, savedState = null } = {}) {
     let status = "ready";
     let startedAt = 0;
     let accumulatedTime = 0;
-    const recordedLaps = [];
+    let recordedLaps = EMPTY_LAPS;
 
     if (canRestore(savedState)) {
         status = savedState.status;
         startedAt = savedState.startedAt;
         accumulatedTime = savedState.accumulatedTime;
-        for (const lap of savedState.laps) recordedLaps.push({ ...lap });
+        recordedLaps = Object.freeze(savedState.laps.map(lap => Object.freeze({ ...lap })));
     }
 
     function elapsedTime() {
@@ -54,19 +56,20 @@ export function createStopwatch({ now = Date.now, savedState = null } = {}) {
             if (status !== "running") return null;
             const total = elapsedTime();
             const previous = recordedLaps[recordedLaps.length - 1];
-            const lap = {
+            const lap = Object.freeze({
                 number: recordedLaps.length + 1,
                 total,
                 duration: total - (previous ? previous.total : 0)
-            };
-            recordedLaps.push(lap);
+            });
+            // ラップを追加したときだけ一覧を置き換え、外側からの変更を防ぐ。
+            recordedLaps = Object.freeze([...recordedLaps, lap]);
             return lap;
         },
         reset() {
             status = "ready";
             startedAt = 0;
             accumulatedTime = 0;
-            recordedLaps.length = 0;
+            recordedLaps = EMPTY_LAPS;
         },
         snapshot() {
             return {
@@ -94,7 +97,6 @@ export function getLapHighlights(laps) {
 
 // 1時間未満は MM:SS.hh、1時間以上は HH:MM:SS.hh。
 export function formatTime(milliseconds) {
-    const pad = value => String(value).padStart(2, "0");
     const hundredths = Math.floor(Math.max(0, milliseconds) / 10);
     const seconds = Math.floor(hundredths / 100);
     const minutes = Math.floor(seconds / 60);

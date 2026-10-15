@@ -12,9 +12,12 @@ export function createStopwatchView(document) {
         lapList: document.getElementById("lapList")
     };
     let displayLength = 0;
+    let renderedStatus = null;
+    let renderedLaps = null;
     let disposed = false;
 
     function fitTimeWidth() {
+        if (disposed) return;
         const width = Math.max(elements.display.offsetWidth, elements.display.scrollWidth);
         if (!width) return;
         const scale = Math.min(1.3, elements.timeFace.clientWidth * 0.96 / width);
@@ -22,6 +25,7 @@ export function createStopwatchView(document) {
     }
 
     function renderTime(milliseconds) {
+        if (disposed) return;
         const text = formatTime(milliseconds);
         if (elements.display.textContent !== text) elements.display.textContent = text;
         if (text.length === displayLength) return;
@@ -32,10 +36,12 @@ export function createStopwatchView(document) {
     }
 
     function renderButtons(status) {
+        if (status === renderedStatus) return;
         elements.stopwatch.dataset.state = status;
         elements.leftButton.disabled = status === "ready";
         elements.leftButton.textContent = status === "paused" ? "リセット" : "ラップ";
         elements.rightButton.textContent = status === "running" ? "停止" : "開始";
+        renderedStatus = status;
     }
 
     function createLapRow(lap) {
@@ -56,6 +62,8 @@ export function createStopwatchView(document) {
     }
 
     function renderLaps(laps) {
+        // モデルの一覧は変更不可。参照が同じなら行と色分けの更新は不要。
+        if (laps === renderedLaps) return;
         elements.lapHeader.hidden = laps.length === 0;
         if (elements.lapList.children.length > laps.length) elements.lapList.replaceChildren();
         // 既存の行を残し、停止・再開時のスクロール位置を維持する。
@@ -67,16 +75,18 @@ export function createStopwatchView(document) {
             row.classList.toggle("is-fast", index === fastestIndex);
             row.classList.toggle("is-slow", index === slowestIndex);
         });
+        renderedLaps = laps;
     }
 
     const resizeObserver = new document.defaultView.ResizeObserver(fitTimeWidth);
     resizeObserver.observe(elements.timeFace);
     if (document.fonts) {
-        document.fonts.ready.then(() => { if (!disposed) fitTimeWidth(); });
+        document.fonts.ready.then(fitTimeWidth);
     }
 
     return {
         render({ status, elapsed, laps }) {
+            if (disposed) return;
             renderButtons(status);
             renderTime(elapsed);
             renderLaps(laps);

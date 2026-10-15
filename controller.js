@@ -1,3 +1,8 @@
+function listen(target, event, handler) {
+    target.addEventListener(event, handler);
+    return () => target.removeEventListener(event, handler);
+}
+
 // 操作・画面の表示状態・保存の連携を担当する。DOMの描画はviewに任せる。
 export function createStopwatchController({ stopwatch, storage, view, document, window }) {
     let animationFrame = null;
@@ -7,6 +12,10 @@ export function createStopwatchController({ stopwatch, storage, view, document, 
         storage.save(stopwatch.snapshot());
     }
 
+    function shouldAnimate() {
+        return !disposed && !document.hidden && stopwatch.status === "running";
+    }
+
     function stopAnimation() {
         if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
         animationFrame = null;
@@ -14,64 +23,65 @@ export function createStopwatchController({ stopwatch, storage, view, document, 
 
     function updateTime() {
         animationFrame = null;
-        if (disposed || document.hidden || stopwatch.status !== "running") return;
+        if (!shouldAnimate()) return;
         view.renderTime(stopwatch.elapsedTime());
         animationFrame = window.requestAnimationFrame(updateTime);
     }
 
     // 起動・操作・画面復帰で同じ描画経路を使い、描画ループの重複を防ぐ。
     function refresh() {
+        if (disposed) return;
         stopAnimation();
         view.render({
             status: stopwatch.status,
             elapsed: stopwatch.elapsedTime(),
             laps: stopwatch.laps
         });
-        if (!document.hidden && stopwatch.status === "running") {
+        if (shouldAnimate()) {
             animationFrame = window.requestAnimationFrame(updateTime);
         }
     }
 
-    function toggleRunning() {
-        if (stopwatch.status === "running") stopwatch.stop();
-        else stopwatch.start();
+    function applyChange(change, afterRender) {
+        if (disposed) return;
+        change();
         refresh();
+        afterRender?.();
         save();
+    }
+
+    function toggleRunning() {
+        applyChange(() => {
+            if (stopwatch.status === "running") stopwatch.stop();
+            else stopwatch.start();
+        });
     }
 
     function handleLeftButton() {
         if (stopwatch.status === "running") {
-            stopwatch.recordLap();
-            refresh();
-            view.scrollLapsToEnd();
+            applyChange(() => stopwatch.recordLap(), () => view.scrollLapsToEnd());
         } else if (stopwatch.status === "paused") {
-            stopwatch.reset();
-            refresh();
-            view.scrollLapsToStart();
-        } else {
-            return;
-        }
-        save();
-    }
-
-    function handleVisibilityChange() {
-        if (document.hidden) {
-            stopAnimation();
-            save();
-        } else {
-            refresh();
+            applyChange(() => stopwatch.reset(), () => view.scrollLapsToStart());
         }
     }
 
-    function handlePageHide() {
+    function suspend() {
+        if (disposed) return;
         stopAnimation();
         save();
     }
 
-    const unbindControls = view.bindControls({ toggleRunning, handleLeftButton });
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("pagehide", handlePageHide);
-    window.addEventListener("pageshow", refresh);
+    function handleVisibilityChange() {
+        if (document.hidden) suspend();
+        else refresh();
+    }
+
+    const unsubscribers = [
+        view.bindControls({ toggleRunning, handleLeftButton }),
+        listen(document, "visibilitychange", handleVisibilityChange),
+        listen(window, "pagehide", suspend),
+        listen(window, "pageshow", refresh)
+    ];
     refresh();
 
     return {
@@ -79,10 +89,7 @@ export function createStopwatchController({ stopwatch, storage, view, document, 
             if (disposed) return;
             disposed = true;
             stopAnimation();
-            unbindControls();
-            document.removeEventListener("visibilitychange", handleVisibilityChange);
-            window.removeEventListener("pagehide", handlePageHide);
-            window.removeEventListener("pageshow", refresh);
+            for (const unsubscribe of unsubscribers) unsubscribe();
             view.destroy();
         }
     };

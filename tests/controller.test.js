@@ -154,3 +154,15 @@ test("destroy removes event listeners, drawing callbacks and view observers", ()
     assert.equal(view.controls, null);
     assert.equal(view.destroyed, 1);
 });
+
+test("callbacks retained after destruction cannot restart or modify the stopwatch", () => {
+    const { controller, view, stopwatch, window, storage } = setup();
+    const { toggleRunning, handleLeftButton } = view.controls;
+    controller.destroy();
+    toggleRunning();
+    handleLeftButton();
+    assert.equal(stopwatch.status, "ready");
+    assert.equal(stopwatch.elapsedTime(), 0);
+    assert.equal(window.frames.size, 0);
+    assert.equal(storage.load(), null);
+});
