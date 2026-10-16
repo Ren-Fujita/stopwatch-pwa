@@ -38,10 +38,27 @@ export function createStopwatch({ now = Date.now, savedState = null } = {}) {
         return Math.max(elapsed, lastLap ? lastLap.total : 0);
     }
 
+    // 開始直後から、未確定のラップを経過時間と同じ時点で計算する。
+    function currentLap(total = elapsedTime()) {
+        if (status === "ready") return null;
+        const previous = recordedLaps[recordedLaps.length - 1];
+        return {
+            number: recordedLaps.length + 1,
+            total,
+            duration: total - (previous ? previous.total : 0)
+        };
+    }
+
     return {
         get status() { return status; },
         get laps() { return recordedLaps; },
         elapsedTime,
+        currentLap,
+        // 1回の時刻取得から、画面全体に渡す値を組み立てる。
+        read() {
+            const elapsed = elapsedTime();
+            return { status, elapsed, laps: recordedLaps, currentLap: currentLap(elapsed) };
+        },
         start() {
             if (status === "running") return;
             startedAt = now();
@@ -54,13 +71,7 @@ export function createStopwatch({ now = Date.now, savedState = null } = {}) {
         },
         recordLap() {
             if (status !== "running") return null;
-            const total = elapsedTime();
-            const previous = recordedLaps[recordedLaps.length - 1];
-            const lap = Object.freeze({
-                number: recordedLaps.length + 1,
-                total,
-                duration: total - (previous ? previous.total : 0)
-            });
+            const lap = Object.freeze(currentLap());
             // ラップを追加したときだけ一覧を置き換え、外側からの変更を防ぐ。
             recordedLaps = Object.freeze([...recordedLaps, lap]);
             return lap;

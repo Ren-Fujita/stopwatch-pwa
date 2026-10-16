@@ -96,10 +96,65 @@ test("destroyed view ignores late font, resize and render callbacks", async () =
     observers[0].callback();
     resolveFonts();
     await Promise.resolve();
-    view.renderTime(1000);
+    view.renderTime({ elapsed: 1000 });
     view.render(renderState([lap(1, 1000, 1000)]));
     assert.equal(nodes.display.textContent, "00:00.00");
     assert.equal(nodes.display.style.getPropertyValue("--time-width-scale"), previousScale);
     assert.equal(nodes.lapList.children.length, 0);
     assert.equal(observers[0].disconnected, true);
+});
+
+test("lap one is visible from zero and resets even with no completed laps", () => {
+    const { view, nodes } = setup();
+    const completed = Object.freeze([]);
+    view.render({ status: "ready", elapsed: 0, laps: completed, currentLap: null });
+    view.render({ status: "running", elapsed: 0, laps: completed, currentLap: lap(1, 0, 0) });
+    assert.equal(nodes.lapHeader.hidden, false);
+    assert.equal(nodes.lapList.children.length, 1);
+    const currentRow = nodes.lapList.children[0];
+    assert.deepEqual(rowValues(currentRow), ["1", "00:00.00", "00:00.00"]);
+    view.renderTime({ elapsed: 1234, currentLap: lap(1, 1234, 1234) });
+    assert.equal(nodes.lapList.children[0], currentRow);
+    assert.deepEqual(rowValues(currentRow), ["1", "00:01.23", "00:01.23"]);
+    view.render({ status: "paused", elapsed: 1234, laps: completed, currentLap: lap(1, 1234, 1234) });
+    assert.deepEqual(rowValues(currentRow), ["1", "00:01.23", "00:01.23"]);
+    view.render({ status: "ready", elapsed: 0, laps: completed, currentLap: null });
+    assert.equal(nodes.lapList.children.length, 0);
+    assert.equal(nodes.lapHeader.hidden, true);
+});
+
+test("the active row becomes a completed row while only the next row keeps counting", () => {
+    const { view, nodes } = setup();
+    view.render({ status: "running", elapsed: 1000, laps: [], currentLap: lap(1, 1000, 1000) });
+    const firstRow = nodes.lapList.children[0];
+    const completed = Object.freeze([lap(1, 1000, 1000)]);
+    view.render({ status: "running", elapsed: 1000, laps: completed, currentLap: lap(2, 1000, 0) });
+    assert.equal(nodes.lapList.children[0], firstRow);
+    assert.equal(nodes.lapList.children.length, 2);
+    assert.deepEqual(rowValues(nodes.lapList.children[1]), ["2", "00:01.00", "00:00.00"]);
+    view.renderTime({ elapsed: 1250, currentLap: lap(2, 1250, 250) });
+    assert.deepEqual(rowValues(firstRow), ["1", "00:01.00", "00:01.00"]);
+    assert.deepEqual(rowValues(nodes.lapList.children[1]), ["2", "00:01.25", "00:00.25"]);
+    assert.equal(nodes.lapList.children.length, 2);
+});
+
+test("current lap values do not participate in fastest and slowest colors", () => {
+    const { view, nodes } = setup();
+    const completed = Object.freeze([lap(1, 1000, 1000), lap(2, 1500, 500)]);
+    view.render({ status: "running", elapsed: 6500, laps: completed, currentLap: lap(3, 6500, 5000) });
+    const [first, second, current] = nodes.lapList.children;
+    assert.equal(first.classList.contains("is-slow"), true);
+    assert.equal(second.classList.contains("is-fast"), true);
+    view.renderTime({ elapsed: 10000, currentLap: lap(3, 10000, 8500) });
+    assert.equal(current.classList.contains("is-slow"), false);
+    assert.equal(current.classList.contains("is-fast"), false);
+    view.render({
+        status: "running", elapsed: 10000,
+        laps: Object.freeze([...completed, lap(3, 10000, 8500)]), currentLap: lap(4, 10000, 0)
+    });
+    assert.equal(nodes.lapList.children[2], current);
+    assert.equal(current.classList.contains("is-slow"), true);
+    assert.equal(first.classList.contains("is-slow"), false);
+    assert.equal(nodes.lapList.children[3].classList.contains("is-fast"), false);
+    assert.equal(nodes.lapList.children[3].classList.contains("is-slow"), false);
 });

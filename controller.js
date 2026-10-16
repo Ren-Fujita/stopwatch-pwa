@@ -24,7 +24,7 @@ export function createStopwatchController({ stopwatch, storage, view, document, 
     function updateTime() {
         animationFrame = null;
         if (!shouldAnimate()) return;
-        view.renderTime(stopwatch.elapsedTime());
+        view.renderTime(stopwatch.read());
         animationFrame = window.requestAnimationFrame(updateTime);
     }
 
@@ -32,11 +32,7 @@ export function createStopwatchController({ stopwatch, storage, view, document, 
     function refresh() {
         if (disposed) return;
         stopAnimation();
-        view.render({
-            status: stopwatch.status,
-            elapsed: stopwatch.elapsedTime(),
-            laps: stopwatch.laps
-        });
+        view.render(stopwatch.read());
         if (shouldAnimate()) {
             animationFrame = window.requestAnimationFrame(updateTime);
         }

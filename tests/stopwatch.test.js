@@ -157,3 +157,80 @@ test("saved snapshots and restoration input remain independent of the live recor
         assert.equal(instance.elapsedTime(), 1000);
     }
 });
+
+test("lap one starts with the stopwatch and each lap press opens the next lap", () => {
+    const { watch, advance } = setup();
+    assert.equal(watch.currentLap(), null);
+    watch.start();
+    assert.deepEqual(watch.currentLap(), { number: 1, total: 0, duration: 0 });
+    assert.deepEqual(watch.laps, []);
+    advance(1234);
+    assert.deepEqual(watch.currentLap(), { number: 1, total: 1234, duration: 1234 });
+    assert.deepEqual(watch.recordLap(), { number: 1, total: 1234, duration: 1234 });
+    assert.deepEqual(watch.currentLap(), { number: 2, total: 1234, duration: 0 });
+    advance(200);
+    assert.deepEqual(watch.currentLap(), { number: 2, total: 1434, duration: 200 });
+    assert.equal(watch.laps.length, 1);
+});
+
+test("the unfinished lap pauses, resumes and clears with the stopwatch", () => {
+    const { watch, advance } = setup();
+    watch.start();
+    advance(1000);
+    watch.recordLap();
+    advance(250);
+    watch.stop();
+    advance(60000);
+    assert.deepEqual(watch.currentLap(), { number: 2, total: 1250, duration: 250 });
+    watch.start();
+    advance(100);
+    assert.deepEqual(watch.currentLap(), { number: 2, total: 1350, duration: 350 });
+    watch.reset();
+    assert.equal(watch.currentLap(), null);
+});
+
+test("unfinished laps restore from the existing saved-state format", () => {
+    const { watch, advance, now } = setup();
+    watch.start();
+    advance(1000);
+    watch.recordLap();
+    advance(250);
+    const runningState = JSON.parse(JSON.stringify(watch.snapshot()));
+    advance(1000);
+    const running = createStopwatch({ now, savedState: runningState });
+    assert.deepEqual(running.currentLap(), { number: 2, total: 2250, duration: 1250 });
+    running.stop();
+    const pausedState = running.snapshot();
+    advance(60000);
+    const paused = createStopwatch({ now, savedState: pausedState });
+    assert.deepEqual(paused.currentLap(), { number: 2, total: 2250, duration: 1250 });
+    assert.deepEqual(Object.keys(paused.snapshot()), [
+        "version", "status", "startedAt", "accumulatedTime", "laps"
+    ]);
+});
+
+test("display reads sample the clock once and keep total and current lap synchronized", () => {
+    let clockReads = 0;
+    const watch = createStopwatch({ now: () => clockReads++ });
+    assert.deepEqual(watch.read(), { status: "ready", elapsed: 0, laps: [], currentLap: null });
+    assert.equal(clockReads, 0);
+    watch.start();
+    const first = watch.read();
+    assert.equal(clockReads, 2);
+    assert.equal(first.elapsed, 1);
+    assert.deepEqual(first.currentLap, { number: 1, total: 1, duration: 1 });
+    assert.equal(first.laps, watch.laps);
+    watch.recordLap();
+    const second = watch.read();
+    assert.equal(clockReads, 4);
+    assert.equal(second.elapsed, 3);
+    assert.deepEqual(second.currentLap, { number: 2, total: 3, duration: 1 });
+    assert.equal(second.laps, watch.laps);
+    watch.stop();
+    const readsBeforePause = clockReads;
+    const paused = watch.read();
+    assert.equal(clockReads, readsBeforePause);
+    assert.equal(paused.status, "paused");
+    assert.equal(paused.elapsed, 4);
+    assert.deepEqual(paused.currentLap, { number: 2, total: 4, duration: 2 });
+});

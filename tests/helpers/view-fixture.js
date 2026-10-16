@@ -39,7 +39,8 @@ export function createViewFixture() {
     const selectors = {
         ".stopwatch": nodes.stopwatch, ".timer-face": nodes.timeFace, ".laps": nodes.laps
     };
-    const document = {
+    const document = Object.assign(new EventTarget(), {
+        hidden: false,
         querySelector: selector => selectors[selector] ?? null,
         getElementById: id => nodes[id] ?? null,
         createElement: () => new Element(),
@@ -52,6 +53,6 @@ export function createViewFixture() {
                 disconnect() { this.disconnected = true; }
             }
         }
-    };
+    });
     return { document, nodes, observers, resolveFonts };
 }

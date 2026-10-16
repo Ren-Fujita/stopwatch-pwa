@@ -1,10 +1,5 @@
-import { formatTime, getLapHighlights } from "./stopwatch.js";
-
-const LAP_COLUMNS = [
-    { className: "lap-number", text: lap => String(lap.number) },
-    { className: "lap-total", text: lap => formatTime(lap.total) },
-    { className: "lap-time", text: lap => formatTime(lap.duration) }
-];
+import { formatTime } from "./stopwatch.js";
+import { createLapListView } from "./lap-list.js";
 
 export function createStopwatchView(document) {
     const elements = {
@@ -17,10 +12,9 @@ export function createStopwatchView(document) {
         lapHeader: document.getElementById("lapHeader"),
         lapList: document.getElementById("lapList")
     };
+    const lapList = createLapListView({ document, list: elements.lapList, header: elements.lapHeader });
     let displayLength = 0;
     let renderedStatus = null;
-    let renderedLaps = null;
-    let renderedHighlights = { fastestIndex: -1, slowestIndex: -1 };
     let disposed = false;
 
     function fitTimeWidth() {
@@ -31,8 +25,7 @@ export function createStopwatchView(document) {
         elements.display.style.setProperty("--time-width-scale", scale);
     }
 
-    function renderTime(milliseconds) {
-        if (disposed) return;
+    function renderClock(milliseconds) {
         const text = formatTime(milliseconds);
         if (elements.display.textContent !== text) elements.display.textContent = text;
         if (text.length === displayLength) return;
@@ -51,73 +44,22 @@ export function createStopwatchView(document) {
         renderedStatus = status;
     }
 
-    function renderLapValues(row, lap) {
-        for (const [index, column] of LAP_COLUMNS.entries()) {
-            const text = column.text(lap);
-            const cell = row.children[index];
-            if (cell.textContent !== text) cell.textContent = text;
-        }
-    }
-
-    function createLapRow(lap) {
-        const row = document.createElement("div");
-        row.className = "lap";
-        for (const column of LAP_COLUMNS) {
-            const cell = document.createElement("span");
-            cell.className = column.className;
-            row.appendChild(cell);
-        }
-        renderLapValues(row, lap);
-        return row;
-    }
-
-    function renderLapHighlights(laps) {
-        const highlights = getLapHighlights(laps);
-        // 以前と今回の最速・最遅の行だけを更新する。
-        const affectedRows = new Set([
-            renderedHighlights.fastestIndex, renderedHighlights.slowestIndex,
-            highlights.fastestIndex, highlights.slowestIndex
-        ]);
-        for (const index of affectedRows) {
-            const row = elements.lapList.children[index];
-            if (!row) continue;
-            row.classList.toggle("is-fast", index === highlights.fastestIndex);
-            row.classList.toggle("is-slow", index === highlights.slowestIndex);
-        }
-        renderedHighlights = highlights;
-    }
-
-    function renderLaps(laps) {
-        // モデルの一覧は変更不可。参照が同じなら行と色分けの更新は不要。
-        if (laps === renderedLaps) return;
-        elements.lapHeader.hidden = laps.length === 0;
-        while (elements.lapList.children.length > laps.length) {
-            elements.lapList.removeChild(elements.lapList.lastElementChild);
-        }
-        // 既存の行を残し、停止・再開時のスクロール位置を維持する。
-        for (let index = 0; index < laps.length; index++) {
-            const row = elements.lapList.children[index];
-            if (!row) elements.lapList.appendChild(createLapRow(laps[index]));
-            else if (laps[index] !== renderedLaps?.[index]) renderLapValues(row, laps[index]);
-        }
-        renderLapHighlights(laps);
-        renderedLaps = laps;
-    }
-
     const resizeObserver = new document.defaultView.ResizeObserver(fitTimeWidth);
     resizeObserver.observe(elements.timeFace);
-    if (document.fonts) {
-        document.fonts.ready.then(fitTimeWidth);
-    }
+    if (document.fonts) document.fonts.ready.then(fitTimeWidth);
 
     return {
-        render({ status, elapsed, laps }) {
+        render({ status, elapsed, laps, currentLap = null }) {
             if (disposed) return;
             renderButtons(status);
-            renderTime(elapsed);
-            renderLaps(laps);
+            renderClock(elapsed);
+            lapList.render(laps, currentLap);
         },
-        renderTime,
+        renderTime({ elapsed, currentLap = null }) {
+            if (disposed) return;
+            renderClock(elapsed);
+            lapList.renderCurrentLap(currentLap);
+        },
         scrollLapsToEnd() { elements.laps.scrollTop = elements.laps.scrollHeight; },
         scrollLapsToStart() { elements.laps.scrollTop = 0; },
         bindControls({ toggleRunning, handleLeftButton }) {
