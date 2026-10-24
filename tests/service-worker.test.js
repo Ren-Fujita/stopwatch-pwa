@@ -65,7 +65,7 @@ for (const scope of ["https://example.github.io/", "https://example.github.io/st
         sw.offline();
         assert.equal(await sw.request("./?home=1", { mode: "navigate" }), "cached:./index.html");
         assert.equal(await sw.request("./index.html", { mode: "navigate" }), "cached:./index.html");
-        for (const asset of ["styles.css", "app.js", "stopwatch.js", "controller.js", "storage.js", "view.js", "lap-list.js", "lap-export.js", "export-preview.js", "manifest.webmanifest", "icons/apple-touch-icon.png"]) {
+        for (const asset of ["styles.css", "app.js", "stopwatch.js", "controller.js", "storage.js", "view.js", "lap-list.js", "lap-image.js", "lap-export.js", "export-preview.js", "manifest.webmanifest", "icons/apple-touch-icon.png"]) {
             assert.equal(await sw.request(`./${asset}`), `cached:./${asset}`);
         }
     });

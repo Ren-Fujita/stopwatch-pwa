@@ -284,5 +284,4 @@ button:disabled { cursor: default; }
     -webkit-touch-callout: default;
     user-select: auto;
 }
-.export-images a { display: inline-block; padding: 14px 4px; color: #bbb; font-size: 13px; }
 .export-dialog [hidden] { display: none; }

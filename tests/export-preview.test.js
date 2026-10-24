@@ -27,7 +27,7 @@ function setup({ supported = true, shareError, createImages = async () => files 
     return { ...fixture, preview, window, revoked, shared, generated: () => generated };
 }
 
-test("preview offers all images together and individual PNG downloads", async () => {
+test("preview shows images without download links and shares all images together", async () => {
     const { preview, nodes, shared, revoked } = setup();
     await preview.open({});
     assert.equal(nodes.exportDialog.open, true);
@@ -36,7 +36,8 @@ test("preview offers all images together and individual PNG downloads", async ()
     for (const [index, figure] of nodes.exportImages.children.entries()) {
         assert.equal(figure.children[0].textContent, `${index + 1} / 3`);
         assert.equal(figure.children[1].src, `blob:${files[index].name}`);
-        assert.equal(figure.children[2].download, files[index].name);
+        assert.equal(figure.children.length, 2);
+        assert.ok(figure.children.every(child => child.download === undefined));
     }
     nodes.shareExport.dispatchEvent(new Event("click"));
     await tick();
@@ -48,11 +49,12 @@ test("preview offers all images together and individual PNG downloads", async ()
     assert.deepEqual(revoked, files.map(file => `blob:${file.name}`));
 });
 
-test("unsupported file sharing leaves each image downloadable", async () => {
+test("unsupported file sharing keeps the images and suggests a long press", async () => {
     const { preview, nodes } = setup({ supported: false });
     await preview.open({});
     assert.equal(nodes.shareExport.hidden, true);
-    assert.match(nodes.exportStatus.textContent, /ダウンロード/);
+    assert.match(nodes.exportStatus.textContent, /長押し/);
+    assert.doesNotMatch(nodes.exportStatus.textContent, /ダウンロード/);
     assert.equal(nodes.exportImages.children.length, 3);
     preview.destroy();
 });
@@ -69,12 +71,15 @@ test("share cancellation preserves the preview without an error", async () => {
     preview.destroy();
 });
 
-test("a failed share keeps the PNG download fallback", async () => {
+test("a failed share preserves the preview and allows sharing to be retried", async () => {
     const { preview, nodes } = setup({ shareError: new Error("failed") });
     await preview.open({});
     nodes.shareExport.dispatchEvent(new Event("click"));
     await tick();
     assert.match(nodes.exportStatus.textContent, /共有できません/);
+    assert.match(nodes.exportStatus.textContent, /もう一度/);
+    assert.doesNotMatch(nodes.exportStatus.textContent, /ダウンロード/);
+    assert.equal(nodes.shareExport.disabled, false);
     assert.equal(nodes.exportImages.children.length, 3);
     preview.destroy();
 });
@@ -201,4 +206,68 @@ test("repeated share clicks only open one system share operation", async () => {
     await tick();
     assert.equal(nodes.shareExport.disabled, false);
     preview.destroy();
+});
+
+test("a delayed close event neither leaks old URLs nor closes the new preview", async () => {
+    const { preview, nodes, revoked } = setup();
+    // ブラウザーのcloseイベントは、close()の呼び出しより後に届く。
+    nodes.exportDialog.close = function () { this.open = false; };
+    await preview.open({});
+    nodes.exportDialog.close();
+    await preview.open({});
+    assert.deepEqual(revoked, files.map(file => `blob:${file.name}`));
+    nodes.exportDialog.dispatchEvent(new Event("close"));
+    assert.equal(nodes.exportDialog.open, true);
+    assert.equal(nodes.exportImages.children.length, 3);
+    assert.equal(nodes.shareExport.disabled, false);
+    nodes.closeExport.dispatchEvent(new Event("click"));
+    nodes.exportDialog.dispatchEvent(new Event("close"));
+    assert.equal(revoked.length, 6);
+    assert.equal(nodes.exportImages.children.length, 0);
+    assert.equal(nodes.exportButton.focusCount, 2);
+    preview.destroy();
+});
+
+test("an old share rejection cannot change a new session's pending share", async () => {
+    const { preview, window, nodes } = setup();
+    const shares = [];
+    window.navigator.share = () => new Promise((resolve, reject) => shares.push({ resolve, reject }));
+    await preview.open({});
+    nodes.shareExport.dispatchEvent(new Event("click"));
+    nodes.closeExport.dispatchEvent(new Event("click"));
+    await preview.open({});
+    nodes.shareExport.dispatchEvent(new Event("click"));
+    const status = nodes.exportStatus.textContent;
+    shares[0].reject(new Error("old share failed"));
+    await tick();
+    assert.equal(nodes.exportStatus.textContent, status);
+    assert.equal(nodes.shareExport.disabled, true);
+    assert.equal(nodes.exportImages.children.length, 3);
+    shares[1].resolve();
+    await tick();
+    assert.equal(nodes.shareExport.disabled, false);
+    preview.destroy();
+});
+
+test("destroy during generation aborts work and ignores late progress and failure", async () => {
+    let job;
+    let fail;
+    const { preview, nodes, revoked, generated } = setup({ createImages: (_, options) => {
+        job = options;
+        return new Promise((_, reject) => { fail = reject; });
+    } });
+    const pending = preview.open({});
+    preview.destroy();
+    preview.destroy();
+    assert.equal(job.signal.aborted, true);
+    job.onProgress(1, 3);
+    fail(new Error("late failure"));
+    await pending;
+    await preview.open({});
+    assert.equal(generated(), 1);
+    assert.equal(nodes.exportDialog.open, false);
+    assert.equal(nodes.exportStatus.textContent, "");
+    assert.equal(nodes.exportImages.children.length, 0);
+    assert.equal(nodes.exportButton.focusCount, 0);
+    assert.deepEqual(revoked, []);
 });

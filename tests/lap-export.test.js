@@ -10,7 +10,7 @@ function stateWithRows(count) {
         currentLap: { number: count, total: count * 1000, duration: 1000 } };
 }
 
-function canvasDocument({ failScales = [], hold } = {}) {
+function canvasDocument({ failWidths = [], hold } = {}) {
     const canvases = [];
     return {
         canvases,
@@ -30,7 +30,7 @@ function canvasDocument({ failScales = [], hold } = {}) {
                     assert.equal(type, "image/png");
                     canvas.encodedWidth = canvas.width;
                     canvas.encodedHeight = canvas.height;
-                    const finish = () => callback(failScales.includes(canvas.width / 430)
+                    const finish = () => callback(failWidths.includes(canvas.width)
                         ? null : new Blob(["png"], { type }));
                     if (hold) hold(finish);
                     else finish();
@@ -83,8 +83,8 @@ test("PNG pages repeat the elapsed time and columns, then release every canvas",
         "stopwatch-laps-20261024-123456-01.png", "stopwatch-laps-20261024-123456-02.png"
     ]);
     assert.ok(files.every(file => file.type === "image/png" && file.size > 0));
-    assert.equal(document.canvases[0].encodedWidth, 860);
-    assert.equal(document.canvases[0].encodedHeight, 9152);
+    assert.deepEqual(document.canvases.map(canvas => [canvas.encodedWidth, canvas.encodedHeight]),
+        [[1170, 12451], [1170, 599]]);
     for (const canvas of document.canvases) {
         assert.equal(canvas.width, 1);
         assert.equal(canvas.height, 1);
@@ -95,10 +95,10 @@ test("PNG pages repeat the elapsed time and columns, then release every canvas",
 });
 
 test("failed high resolution encoding retries at 430 pixels without losing rows", async () => {
-    const document = canvasDocument({ failScales: [2] });
+    const document = canvasDocument({ failWidths: [1170] });
     const files = await createLapImages(stateWithRows(100), { document });
     assert.equal(files.length, 1);
-    assert.deepEqual(document.canvases.map(canvas => canvas.encodedWidth), [860, 430]);
+    assert.deepEqual(document.canvases.map(canvas => canvas.encodedWidth), [1170, 430]);
     assert.ok(document.canvases[1].drawn.some(item => item.text === "ラップ100"));
     assert.ok(document.canvases.every(canvas => canvas.width === 1 && canvas.height === 1));
 });
@@ -106,7 +106,7 @@ test("failed high resolution encoding retries at 430 pixels without losing rows"
 test("total encoding failure reports an error, releases memory and preserves the record", async () => {
     const state = stateWithRows(100);
     const before = structuredClone(state);
-    const document = canvasDocument({ failScales: [1, 2] });
+    const document = canvasDocument({ failWidths: [430, 1170] });
     await assert.rejects(createLapImages(state, { document }));
     assert.deepEqual(state, before);
     assert.ok(document.canvases.every(canvas => canvas.width === 1 && canvas.height === 1));
