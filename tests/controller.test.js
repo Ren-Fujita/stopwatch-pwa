@@ -22,7 +22,7 @@ class PageWindow extends EventTarget {
     }
 }
 
-function setup({ savedState, initialTime = 1700000000000, storageBlocked = false } = {}) {
+function setup({ savedState, initialTime = 1700000000000, storageBlocked = false, exporter } = {}) {
     let time = initialTime;
     const values = new Map();
     const memory = {
@@ -57,7 +57,9 @@ function setup({ savedState, initialTime = 1700000000000, storageBlocked = false
         scrollLapsToStart() { this.scroll = "start"; },
         destroy() { this.destroyed++; }
     };
-    const controller = createStopwatchController({ stopwatch, storage, view, document, window });
+    view.exportBusy = [];
+    view.setExportBusy = busy => view.exportBusy.push(busy);
+    const controller = createStopwatchController({ stopwatch, storage, view, document, window, exporter });
     return {
         controller, stopwatch, storage, view, window, document,
         advance(milliseconds) { time += milliseconds; },
@@ -95,6 +97,58 @@ test("button actions update the display, laps, saved state and reset", () => {
     assert.deepEqual(view.state, { status: "ready", elapsed: 0, laps: [], currentLap: null });
     assert.equal(view.scroll, "start");
     assert.equal(storage.load(), null);
+});
+
+test("image export is paused-only, samples once and never changes or saves the record", async () => {
+    const captured = [];
+    let finish;
+    let destroyed = 0;
+    const exporter = {
+        open(state) { captured.push(state); return new Promise(resolve => { finish = resolve; }); },
+        destroy() { destroyed++; }
+    };
+    const { view, stopwatch, storage, advance, controller } = setup({ exporter });
+    await view.controls.exportLaps();
+    assert.equal(captured.length, 0);
+    view.controls.toggleRunning();
+    advance(1000);
+    await view.controls.exportLaps();
+    assert.equal(captured.length, 0);
+    view.controls.handleLeftButton();
+    advance(500);
+    view.controls.toggleRunning();
+    const before = stopwatch.snapshot();
+    const savedBefore = storage.load();
+    const originalRead = stopwatch.read;
+    let reads = 0;
+    stopwatch.read = () => { reads++; return originalRead(); };
+    const pending = view.controls.exportLaps();
+    await view.controls.exportLaps();
+    assert.equal(reads, 1);
+    assert.equal(captured.length, 1);
+    assert.equal(captured[0].elapsed, 1500);
+    assert.deepEqual(captured[0].currentLap, { number: 2, total: 1500, duration: 500 });
+    assert.deepEqual(view.exportBusy, [true]);
+    finish();
+    await pending;
+    assert.deepEqual(view.exportBusy, [true, false]);
+    assert.deepEqual(stopwatch.snapshot(), before);
+    assert.deepEqual(storage.load(), savedBefore);
+    controller.destroy();
+    assert.equal(destroyed, 1);
+});
+
+test("an export completing after disposal cannot update the destroyed view", async () => {
+    let finish;
+    const exporter = { open() { return new Promise(resolve => { finish = resolve; }); }, destroy() {} };
+    const { view, controller } = setup({ exporter });
+    view.controls.toggleRunning();
+    view.controls.toggleRunning();
+    const pending = view.controls.exportLaps();
+    controller.destroy();
+    finish();
+    await pending;
+    assert.deepEqual(view.exportBusy, [true]);
 });
 
 test("backgrounding suspends drawing and restores all elapsed time on return", () => {

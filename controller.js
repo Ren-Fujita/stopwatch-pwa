@@ -4,9 +4,10 @@ function listen(target, event, handler) {
 }
 
 // 操作・画面の表示状態・保存の連携を担当する。DOMの描画はviewに任せる。
-export function createStopwatchController({ stopwatch, storage, view, document, window }) {
+export function createStopwatchController({ stopwatch, storage, view, document, window, exporter }) {
     let animationFrame = null;
     let disposed = false;
+    let exporting = false;
 
     function save() {
         storage.save(stopwatch.snapshot());
@@ -67,13 +68,26 @@ export function createStopwatchController({ stopwatch, storage, view, document, 
         save();
     }
 
+    async function exportLaps() {
+        if (disposed || exporting || !exporter || stopwatch.status !== "paused") return;
+        exporting = true;
+        view.setExportBusy(true);
+        try {
+            // 画像用の値を一度だけ取得し、ラップの確定や保存処理は行わない。
+            await exporter.open(stopwatch.read());
+        } finally {
+            exporting = false;
+            if (!disposed) view.setExportBusy(false);
+        }
+    }
+
     function handleVisibilityChange() {
         if (document.hidden) suspend();
         else refresh();
     }
 
     const unsubscribers = [
-        view.bindControls({ toggleRunning, handleLeftButton }),
+        view.bindControls({ toggleRunning, handleLeftButton, exportLaps }),
         listen(document, "visibilitychange", handleVisibilityChange),
         listen(window, "pagehide", suspend),
         listen(window, "pageshow", refresh)
@@ -87,6 +101,7 @@ export function createStopwatchController({ stopwatch, storage, view, document, 
             stopAnimation();
             for (const unsubscribe of unsubscribers) unsubscribe();
             view.destroy();
+            exporter?.destroy();
         }
     };
 }

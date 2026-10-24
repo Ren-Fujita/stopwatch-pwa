@@ -20,6 +20,12 @@
 <body>
 <noscript class="noscript">ストップウォッチを使うにはJavaScriptを有効にしてください。</noscript>
 <main class="stopwatch" data-state="ready" aria-label="ストップウォッチ">
+    <button id="exportButton" class="export-button" type="button" disabled
+        aria-label="ラップ一覧を画像で保存" title="ラップ一覧を画像で保存">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 3v12m-4-4 4 4 4-4M5 15v5h14v-5"/>
+        </svg>
+    </button>
     <div class="timer-face">
         <div id="display" class="display" role="timer" aria-label="経過時間">00:00.00</div>
     </div>
@@ -40,6 +46,20 @@
         </div>
     </section>
 </main>
+
+<dialog id="exportDialog" class="export-dialog" aria-labelledby="exportTitle" aria-describedby="exportStatus">
+    <div class="export-dialog-content">
+        <header class="export-dialog-header">
+            <h2 id="exportTitle">ラップ画像</h2>
+            <button id="closeExport" class="export-action export-close" type="button" autofocus>閉じる</button>
+        </header>
+        <p id="exportStatus" class="export-status" role="status" aria-live="polite"></p>
+        <div id="exportImages" class="export-images"></div>
+        <footer class="export-dialog-footer">
+            <button id="shareExport" class="export-action" type="button" disabled>共有・保存</button>
+        </footer>
+    </div>
+</dialog>
 
 <script type="module" src="./app.js"></script>
 </body>

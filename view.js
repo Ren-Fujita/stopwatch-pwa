@@ -8,6 +8,7 @@ export function createStopwatchView(document) {
         display: document.getElementById("display"),
         leftButton: document.getElementById("leftButton"),
         rightButton: document.getElementById("rightButton"),
+        exportButton: document.getElementById("exportButton"),
         laps: document.querySelector(".laps"),
         lapHeader: document.getElementById("lapHeader"),
         lapList: document.getElementById("lapList")
@@ -16,6 +17,13 @@ export function createStopwatchView(document) {
     let displayLength = 0;
     let renderedStatus = null;
     let disposed = false;
+    let exportBusy = false;
+    let canExport = false;
+
+    function updateExportButton() {
+        elements.exportButton.disabled = exportBusy || !canExport;
+        elements.exportButton.ariaBusy = String(exportBusy);
+    }
 
     function fitTimeWidth() {
         if (disposed) return;
@@ -54,6 +62,8 @@ export function createStopwatchView(document) {
             renderButtons(status);
             renderClock(elapsed);
             lapList.render(laps, currentLap);
+            canExport = status === "paused" && (laps.length > 0 || currentLap !== null);
+            updateExportButton();
         },
         renderTime({ elapsed, currentLap = null }) {
             if (disposed) return;
@@ -62,12 +72,19 @@ export function createStopwatchView(document) {
         },
         scrollLapsToEnd() { elements.laps.scrollTop = elements.laps.scrollHeight; },
         scrollLapsToStart() { elements.laps.scrollTop = 0; },
-        bindControls({ toggleRunning, handleLeftButton }) {
+        setExportBusy(busy) {
+            if (disposed) return;
+            exportBusy = busy;
+            updateExportButton();
+        },
+        bindControls({ toggleRunning, handleLeftButton, exportLaps }) {
             elements.rightButton.addEventListener("click", toggleRunning);
             elements.leftButton.addEventListener("click", handleLeftButton);
+            if (exportLaps) elements.exportButton.addEventListener("click", exportLaps);
             return () => {
                 elements.rightButton.removeEventListener("click", toggleRunning);
                 elements.leftButton.removeEventListener("click", handleLeftButton);
+                if (exportLaps) elements.exportButton.removeEventListener("click", exportLaps);
             };
         },
         destroy() {

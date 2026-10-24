@@ -10,6 +10,8 @@ class Element extends EventTarget {
     scrollWidth = 280;
     clientWidth = 358;
     textContent = "";
+    open = false;
+    focusCount = 0;
     classes = new Set();
     properties = new Map();
     classList = {
@@ -28,10 +30,15 @@ class Element extends EventTarget {
     get lastElementChild() { return this.children.at(-1) ?? null; }
     appendChild(child) { this.children.push(child); return child; }
     removeChild(child) { this.children.splice(this.children.indexOf(child), 1); return child; }
+    replaceChildren(...children) { this.children = children; }
+    showModal() { this.open = true; }
+    close() { this.open = false; this.dispatchEvent(new Event("close")); }
+    focus() { this.focusCount++; }
 }
 
 export function createViewFixture() {
-    const names = ["stopwatch", "timeFace", "display", "leftButton", "rightButton", "laps", "lapHeader", "lapList"];
+    const names = ["stopwatch", "timeFace", "display", "leftButton", "rightButton", "laps", "lapHeader", "lapList",
+        "exportButton", "exportDialog", "exportStatus", "exportImages", "closeExport", "shareExport"];
     const nodes = Object.fromEntries(names.map(name => [name, new Element()]));
     const observers = [];
     let resolveFonts;

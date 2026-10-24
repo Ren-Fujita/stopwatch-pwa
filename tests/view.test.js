@@ -12,6 +12,32 @@ const lap = (number, total, duration) => Object.freeze({ number, total, duration
 const rowValues = row => row.children.map(cell => cell.textContent);
 const renderState = (laps, status = "running") => ({ status, laps, elapsed: laps.at(-1)?.total ?? 0 });
 
+test("the unobtrusive export control is enabled only for paused, nonempty records", () => {
+    const { view, nodes } = setup();
+    view.render(renderState([], "ready"));
+    assert.equal(nodes.exportButton.disabled, true);
+    view.render({ ...renderState([]), currentLap: lap(1, 500, 500) });
+    assert.equal(nodes.exportButton.disabled, true);
+    view.render({ ...renderState([], "paused"), currentLap: lap(1, 500, 500) });
+    assert.equal(nodes.exportButton.disabled, false);
+    view.setExportBusy(true);
+    assert.equal(nodes.exportButton.disabled, true);
+    view.setExportBusy(false);
+    assert.equal(nodes.exportButton.disabled, false);
+    view.render(renderState([], "ready"));
+    assert.equal(nodes.exportButton.disabled, true);
+});
+
+test("export control listeners are removed with the existing controls", () => {
+    const { view, nodes } = setup();
+    let exports = 0;
+    const unbind = view.bindControls({ toggleRunning() {}, handleLeftButton() {}, exportLaps() { exports++; } });
+    nodes.exportButton.dispatchEvent(new Event("click"));
+    unbind();
+    nodes.exportButton.dispatchEvent(new Event("click"));
+    assert.equal(exports, 1);
+});
+
 test("view restores lap values, button labels and fastest/slowest colors", () => {
     const { view, nodes } = setup();
     view.render(renderState([], "ready"));
