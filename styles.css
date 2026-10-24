@@ -205,23 +205,29 @@ button:disabled { cursor: default; }
 
 /* 絶対配置にして、時刻・操作ボタン・一覧の位置を保つ。 */
 .export-button {
+    --export-icon-size: 24px;
+    --export-hit-size: 44px;
+    --export-top-gap: 32px;
     position: absolute;
-    top: calc(env(safe-area-inset-top, 0px) + 8px);
+    /* 画面上端から余白を取り、iOSの上端の表示効果からアイコンを離す。 */
+    top: calc(env(safe-area-inset-top, 0px) + var(--export-top-gap));
     left: max(8px, env(safe-area-inset-left, 0px));
-    width: 44px;
-    height: 44px;
-    padding: 13px;
+    width: var(--export-hit-size);
+    height: var(--export-hit-size);
+    /* 共通のGrid中央寄せを使い、アイコンの寸法とpaddingの連動をなくす。 */
+    padding: 0;
     border: 0;
     border-radius: 0;
     background: transparent;
     color: #8e8e93;
 }
 .export-button svg {
-    width: 18px;
-    height: 18px;
+    display: block;
+    width: var(--export-icon-size);
+    height: var(--export-icon-size);
     fill: none;
     stroke: currentColor;
-    stroke-width: 1.5;
+    stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
 }
